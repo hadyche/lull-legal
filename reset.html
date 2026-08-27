@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Reset your Lunaffirm password</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(160deg, #182144 0%, #0B1128 55%, #070A1A 100%);
+      color: #EEF0FB; padding: 24px;
+    }
+    .card {
+      width: 100%; max-width: 380px; background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(198,184,255,0.25); border-radius: 20px; padding: 28px 24px;
+      backdrop-filter: blur(8px);
+    }
+    h1 { font-size: 22px; margin: 0 0 6px; font-weight: 600; }
+    p { font-size: 14px; line-height: 1.5; color: rgba(238,240,251,0.72); margin: 0 0 18px; }
+    label { display: block; font-size: 12px; color: rgba(238,240,251,0.72); margin: 14px 0 6px; }
+    input {
+      width: 100%; padding: 13px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.06); color: #EEF0FB; font-size: 16px; outline: none;
+    }
+    input:focus { border-color: #C6B8FF; }
+    button {
+      width: 100%; margin-top: 22px; padding: 15px; border: none; border-radius: 14px;
+      background: linear-gradient(135deg, #C6B8FF, #9D86FF); color: #0B1128;
+      font-size: 16px; font-weight: 600; cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: default; }
+    .msg { font-size: 13px; margin-top: 16px; text-align: center; min-height: 18px; }
+    .ok { color: #9BE8B8; }
+    .err { color: #FF9B9B; }
+    .moon { font-size: 34px; text-align: center; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="moon">🌙</div>
+    <h1>Set a new password</h1>
+    <p id="intro">Choose a new password for your Lunaffirm account.</p>
+    <form id="form">
+      <label for="pw">New password</label>
+      <input id="pw" type="password" autocomplete="new-password" minlength="6" required />
+      <label for="pw2">Confirm password</label>
+      <input id="pw2" type="password" autocomplete="new-password" minlength="6" required />
+      <button id="submit" type="submit">Update password</button>
+    </form>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+    const SUPABASE_URL = "https://mxjrunzfpukccgvgndqg.supabase.co";
+    const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14anJ1bnpmcHVrY2NndmduZHFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNTUyNjYsImV4cCI6MjEwMDkzMTI2Nn0.8HJXuU0fEbQGRCuoWNxdW_S0p82HgQNcHyatBxxBQus";
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
+      auth: { detectSessionInUrl: true, flowType: "implicit" }
+    });
+
+    const form = document.getElementById("form");
+    const msg = document.getElementById("msg");
+    const submit = document.getElementById("submit");
+    const intro = document.getElementById("intro");
+
+    // The recovery link drops us here with the session in the URL. Confirm we have
+    // a recovery session before letting the user set a password.
+    let ready = false;
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (session) { ready = true; }
+    });
+    // Fallback check after the SDK parses the URL.
+    setTimeout(async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session && !ready) {
+        form.style.display = "none";
+        intro.textContent = "This reset link is invalid or has expired. Request a new one from the app.";
+        intro.classList.add("err");
+      }
+    }, 800);
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msg.textContent = ""; msg.className = "msg";
+      const pw = document.getElementById("pw").value;
+      const pw2 = document.getElementById("pw2").value;
+      if (pw !== pw2) { msg.textContent = "Passwords don't match."; msg.classList.add("err"); return; }
+      if (pw.length < 6) { msg.textContent = "Use at least 6 characters."; msg.classList.add("err"); return; }
+      submit.disabled = true; submit.textContent = "Updating…";
+      const { error } = await supabase.auth.updateUser({ password: pw });
+      if (error) {
+        msg.textContent = error.message || "Couldn't update your password. The link may have expired.";
+        msg.classList.add("err");
+        submit.disabled = false; submit.textContent = "Update password";
+      } else {
+        form.style.display = "none";
+        msg.textContent = "Password updated ✓ — open Lunaffirm and sign in with your new password.";
+        msg.classList.add("ok");
+      }
+    });
+  </script>
+</body>
+</html>
